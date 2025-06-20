@@ -33,7 +33,7 @@
     <script>
         // リクエストを送る送信先 URL（Hosted API）と API キーを準備
         const ENDPOINT = "https://detect.roboflow.com/fish-identification-zxs1s-afowq/2";
-        const API_KEY  = "gw6KBfcSGOUAG3rRbtKD";
+        import API_KEY from "./config.js";
         const requestUrl = `${ENDPOINT}?api_key=${API_KEY}`+`&confidence=5&overlap=10`; //?は、URL の「パス部分」と「クエリ文字列」を区切る記号
 
 
