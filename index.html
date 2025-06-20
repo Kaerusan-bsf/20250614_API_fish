@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Automatic fish length measurement</title>
+    
+</head>
+
+<body>
+    <h1>魚体長 自動計測</h1>
+
+    <!-- type="file"画像・PDF など、ローカルファイルをアップロードさせたいときに使う。 -->
+    <!-- accept="image/*"選択できるファイルの種類を制限します。ここでは「画像ファイルのみ」。 -->
+    <input 
+        type="file" 
+        id="fileInput" 
+        accept="image/*" 
+    />
+    <button id="runBtn">計測</button>
+    <br>
+    <!-- 写真内の px（ピクセル） と cm（実寸） を結びつける キャリブレーション値 として使います。 -->
+    <label>1 cm = <input id="pxPerCm" type="number" step="0.1" value="20" /> px</label>
+
+    <img id="preview" />
+
+    <h2>結果</h2>
+    <div id="result">画像を選択して計測を押してください</div>
+
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.6.0/jquery.min.js"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+
+    <script>
+        // リクエストを送る送信先 URL（Hosted API）と API キーを準備
+        const ENDPOINT = "https://detect.roboflow.com/fish-identification-zxs1s-afowq/2";
+        const API_KEY  = "gw6KBfcSGOUAG3rRbtKD";
+        const requestUrl = `${ENDPOINT}?api_key=${API_KEY}`+`&confidence=5&overlap=10`; //?は、URL の「パス部分」と「クエリ文字列」を区切る記号
+
+
+        // GET は「データ取得専用」。URL にパラメータを付けるだけでリクエスト本体は空。
+        // POST は「データ送信＋取得」。画像・JSON・FormData など本体にデータを詰めて送れる。
+
+        // プレビュー表示
+        $("#fileInput").on("change",function(){
+            // jQuery の .on() に渡した 無名関数（コールバック）は、呼び出されるときに this を自動でイベント元要素に書き換えてくれる 規則があります。
+            // そのため this.files と書けば、<input type="file"> が内部で持っている FileList にアクセスできるわけです。
+            const file = this.files[0];
+
+            // URL.createObjectURL(file) でブラウザ内に Blob URL を発行
+            // <img id="preview"> の src をその URL に設定
+            // ブラウザが自動で画像をレンダリング → 画面に即表示
+            if(file){
+                $("#preview").attr("src",URL.createObjectURL(file));
+            } 
+        });
+
+        // ボタンクリックで計測開始
+        $("#runBtn").on("click", function(){
+            const file = $("#fileInput")[0].files[0]; // 画像ファイルを再取得
+            const scale = Number($("#pxPerCm").val()); // キャリブレーション値(px/cm)
+
+            const form = new FormData(); //FormData は multipart/form-data という郵便箱用フォーマットを自動で作ってくれるブラウザ標準クラス。画像やテキストを何個でも詰められる。
+            form.append("file",file); //- 第1引数 "file" → フィールド名（サーバ側が「file という名札の荷物だ」と認識）- 第2引数 file → <input type="file"> で選んだ File オブジェクト（画像バイナリ本体）。
+
+            // - .post は 荷物を伴う HTTP POST
+            // - 第1引数 requestUrl → 送り先（Roboflow Hosted API + ?api_key=…）
+            // - 第2引数 form → 封筒。axios はこれを検知し、自動で Content-Type: multipart/form-data; boundary=... を付けて送信。
+
+            axios
+                .post(requestUrl, form)
+                .then(res => {
+                    const preds = res.data.predictions;
+                    if (!preds.length) {
+                        $("#result").text("魚が検出できませんでした");
+                        return;
+                    }
+                    const main = preds.reduce((a,b)=>(a.width>b.width?a:b));
+                    const lengthCm = (main.width / scale).toFixed(1);
+                    $("#result").html(`<p>全長 ${lengthCm} cm</p>`); 
+                })
+                .catch(function(error){
+                    // リクエスト失敗時の処理（errorにエラー内容が入っている）
+                    console.log(error);
+                })
+                .finally(function(){
+                    // 成功失敗に関わらず必ず実行
+                    console.log("done!");
+                });
+        });
+
+        
+
+
+
+    </script>
+
+    
+</body>
+</html>
